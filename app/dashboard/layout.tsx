@@ -27,7 +27,7 @@ export default function DashboardLayout({
         <div className="flex-1 flex flex-col gap-20 max-w-5xl w-full p-5">
           {children}
         </div>
-              </div>
+      </div>
     </main>
   )
 }

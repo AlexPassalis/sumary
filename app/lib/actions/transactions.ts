@@ -1,25 +1,90 @@
 'use server'
 
-import { db } from '@/app/lib/db'
-import { transactions } from '@/app/lib/db/schema'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { eq } from 'drizzle-orm'
+import { tablePageSize } from '@/data/magic'
 
-export async function getTransactions() {
+export type Transaction = {
+  id: string
+  user_id: string
+  date: string
+  account_no: string
+  description: string
+  amount: string
+  created_at: string
+}
+
+export type PaginatedResult<T> = {
+  data: T[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export async function getTransactions(
+  page: number = 1,
+  pageSize: number = tablePageSize,
+): Promise<PaginatedResult<Transaction>> {
   const supabase = await createClient()
-  const { data } = await supabase.auth.getClaims()
+  const { data: authData } = await supabase.auth.getClaims()
 
-  if (!data?.claims?.sub) {
-    throw new Error('Unauthorized')
+  if (!authData?.claims?.sub) {
+    redirect('/auth/login')
   }
 
-  const userId = data.claims.sub as string
+  // Calculate offset
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
 
-  const result = await db
+  // Get total count and paginated data
+  const { data, error, count } = await supabase
+    .from('transactions')
+    .select('*', { count: 'exact' })
+    .order('date', { ascending: false })
+    .range(from, to)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const totalCount = count ?? 0
+
+  return {
+    data: data ?? [],
+    totalCount,
+    page,
+    pageSize,
+    totalPages: Math.ceil(totalCount / pageSize),
+  }
+}
+
+export async function updateTransactionDescription(
+  id: string,
+  description: string,
+): Promise<Transaction> {
+  const supabase = await createClient()
+  const { data: authData } = await supabase.auth.getClaims()
+
+  if (!authData?.claims?.sub) {
+    redirect('/auth/login')
+  }
+
+  const trimmed = description.trim()
+  if (!trimmed) {
+    throw new Error('Description cannot be empty')
+  }
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update({ description: trimmed })
+    .eq('id', id)
     .select()
-    .from(transactions)
-    .where(eq(transactions.userId, userId))
-    .orderBy(transactions.date)
+    .single()
 
-  return result
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
 }

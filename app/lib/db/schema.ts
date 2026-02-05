@@ -14,7 +14,9 @@ export const transactions = pgTable('transactions', {
   accountNo: text('account_no').notNull(),
   description: text('description').notNull(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 })
 
 export type Transaction = typeof transactions.$inferSelect
